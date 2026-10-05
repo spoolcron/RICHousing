@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Richmond VA metro home prices, 2021 → 2026</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+    <body>
+    <header>
+      <h1>Average home prices, Richmond VA metro</h1>
+      <p class="region" id="region"></p>
+      <p class="stamp" id="stamp"></p>
+    </header>
+
+    <main>
+      <section class="stats" id="stats" aria-label="Headline numbers"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Price by year</h2>
+          <div class="controls">
+            <div class="seg" id="metric" role="group" aria-label="Metric">
+              <button data-metric="avg" class="on">Average</button>
+              <button data-metric="med">Median</button>
+              <button data-metric="both">Both</button>
+            </div>
+            <div class="seg" id="mode" role="group" aria-label="Scale">
+              <button data-mode="usd" class="on">US dollars</button>
+              <button data-mode="idx">Indexed, 2021 = 100</button>
+            </div>
+            <label class="chk"><input type="checkbox" id="ytd" checked /> add 2026 YTD</label>
+            <label class="chk"><input type="checkbox" id="rate" checked /> 30-yr rate overlay</label>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div id="main" class="chart"></div>
+          <div id="tip" class="tip" hidden></div>
+        </div>
+        <p class="cap" id="maincap"></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Average days on market</h2>
+          <p class="cap tight">Same MLS reports · listing to accepted offer, not to closing</p>
+        </div>
+        <div class="chart-wrap"><div id="dom" class="chart"></div></div>
+        <p class="cap">
+          Time-to-offer is the clearest read on how hot the market was: 15 days at the 2021 peak, 28 by
+          2025 — nearly double, and 2026 is tracking at 27 for Jan–Aug. In 2025 single-family homes took
+          25 days and townhouses/condos 37. Longer is cooler: sellers no longer collect multiple offers
+          in a weekend, which is what let prices keep drifting up without falling.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>What the monthly payment does</h2>
+          <div class="controls">
+            <label class="chk">down payment
+              <select id="down">
+                <option value="20" selected>20%</option>
+                <option value="10">10%</option>
+                <option value="5">5%</option>
+                <option value="0">none</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div id="pay" class="chart"></div>
+          <div id="paytip" class="tip" hidden></div>
+        </div>
+        <p class="cap" id="paycap"></p>
+        <div id="t-pay"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Median price by locality</h2>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="chart-wrap"><div id="areas" class="chart"></div></div>
+        <p class="cap">
+          Median sale price, all residential. Hanover is the priciest and flattest; the city has closed
+          most of its gap since 2021.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>The numbers</h2>
+        <div class="tables">
+          <div id="t-metro"></div>
+          <div id="t-areas"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Method and caveats</h2>
+        <ul class="notes" id="notes"></ul>
+        <h3>Sources</h3>
+        <ul class="src" id="src"></ul>
+      </section>
+    </main>
+
+    <footer>
+      Built from the CVMLS annual reports (2021–2025 vintages) and the Aug 2026 monthly report.
+      Reference copies in <code>data/</code>.
+    </footer>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,111 @@
+// Richmond, VA metro home prices by calendar year.
+// Source: Central Virginia Regional MLS (CVMLS) annual/monthly reports published by ShowingTime.
+// Coverage: Chesterfield County, Hanover County, Henrico County, Richmond City. Residential (SF + THC), all properties.
+// Prices are closed-sale prices, seller concessions excluded.
+
+const DATA = {
+  region:
+    "Richmond, VA metro — Central Virginia Regional MLS area (Chesterfield · Hanover · Henrico · Richmond City)",
+  builtOn: "2026-10-05",
+
+  years: [2021, 2022, 2023, 2024, 2025],
+
+  // Full calendar years, latest vintage (annual report current as of 2026-01-10).
+  metro: {
+    avg: [366359, 414642, 438513, 473106, 483092],
+    med: [325000, 364950, 382500, 410000, 418880],
+    sales: [18959, 15540, 12625, 12918, 13098],
+  },
+
+  // Context: the year before the window.
+  baseline: { year: 2020, avg: 329474, med: 292000, sales: 17849 },
+
+  // 2026 is not a completed year: Jan–Aug 2026 year-to-date, all residential.
+  ytd: {
+    label: "2026 YTD",
+    months: "Jan–Aug 2026",
+    avg: 502299,
+    med: 425000,
+    sales: 9353,
+    prior: { avg: 486033, med: 420000, sales: 9079 },
+  },
+
+  // Average days from listing to an accepted offer (report metric: "Days on Market Until Sale"),
+  // same Quick Facts pages as the prices. 2026 is the Jan–Aug year-to-date figure.
+  dom: {
+    years: [15, 16, 21, 26, 28],
+    baseline: { year: 2020, days: 27 },
+    ytd: 27,
+    ytdPrior: 26,
+    split2025: { singleFamily: 25, condoTown: 37 },
+    byArea2025: "Henrico +13.6%, Richmond City +9.1%, Chesterfield +7.1%, Hanover 0.0%",
+  },
+
+  // Median sale price by locality (annual report 2025, p.9 "Area Historical Median Prices").
+  areas: [
+    { name: "Hanover County", med: [365000, 425000, 450000, 470000, 473500] },
+    { name: "Chesterfield County", med: [330000, 370000, 387000, 413408, 421288] },
+    { name: "Henrico County", med: [310191, 345000, 371925, 400000, 400000] },
+    { name: "Richmond City", med: [320000, 341000, 350000, 390900, 400000] },
+  ],
+
+  // Rolling 12 months ending Aug 2026 (all properties), for a "right now" reference.
+  rolling12: { asOf: "Aug 2026", med: 420000, yoy: 0.0 },
+
+  // 30-year fixed mortgage rate: Freddie Mac Primary Mortgage Market Survey weekly averages,
+  // via FRED series MORTGAGE30US (copy saved at data/mortgage30us.csv, pulled 2026-10-05).
+  // Averages are over the weekly observations inside each calendar month / year, so 2022 straddles
+  // the survey's 2022-11-17 methodology change and differs slightly from Freddie's own yearly table.
+  rate: {
+    annual: [2.96, 5.34, 6.81, 6.72, 6.6],
+    baseline: 3.11,
+    ytd: 6.35,
+    ytdPrior: 6.76,
+    monthly: {
+      start: "2021-01",
+      last: "2026-09",
+      rate: [
+        2.73, 2.81, 3.08, 3.06, 2.96, 2.98, 2.87, 2.84, 2.90, 3.07,
+        3.07, 3.10, 3.45, 3.76, 4.17, 4.98, 5.23, 5.52, 5.41, 5.22,
+        6.11, 6.90, 6.80, 6.36, 6.27, 6.26, 6.54, 6.34, 6.42, 6.71,
+        6.84, 7.07, 7.20, 7.62, 7.44, 6.82, 6.64, 6.78, 6.82, 6.99,
+        7.06, 6.92, 6.85, 6.50, 6.18, 6.43, 6.80, 6.71, 6.96, 6.84,
+        6.65, 6.72, 6.82, 6.82, 6.72, 6.59, 6.35, 6.25, 6.24, 6.19,
+        6.10, 6.05, 6.18, 6.33, 6.44, 6.49, 6.54, 6.67, 6.86,
+      ],
+    },
+  },
+
+  // Assumptions for the monthly-payment estimate.
+  loan: { years: 30, defaultDown: 20 },
+
+  sources: [
+    {
+      what: "Annual report 2021–2025 (median, average, closed sales by year; area medians)",
+      url: "https://cvmls-public.stats.showingtime.com/docs/ann/x/RichmondMetro",
+    },
+    {
+      what: "Monthly indicators, Aug 2026 (2026 and 2025 year-to-date, all residential)",
+      url: "https://cvmls-public.stats.showingtime.com/docs/mmi/x/RichmondMetro",
+    },
+    {
+      what: "Housing supply overview, Aug 2026 (rolling 12-month median)",
+      url: "https://cvmls-public.stats.showingtime.com/docs/hso/x/RichmondMetro",
+    },
+    {
+      what: "30-year fixed mortgage rate, weekly (Freddie Mac PMMS via FRED, series MORTGAGE30US)",
+      url: "https://fred.stlouisfed.org/data/MORTGAGE30US",
+    },
+  ],
+
+  notes: [
+    "Average = mean closed-sale price, median = midpoint of closed sales. They diverge because the top of the market carries the mean.",
+    "Earlier vintages restate the same year slightly (e.g. 2022 average first printed $414,795, now $414,642; Chesterfield 2024 median $412,900 → $413,408). Late-entered sales, ≤0.05%.",
+    "Covered areas are the four CVMLS localities above. Powhatan, Prince George and other counties in the wider Richmond CSA are not in this report.",
+    "MLS closings only: off-market and unlisted sales are excluded; price is contract price, not concession-adjusted.",
+    "2026 is year-to-date (Jan–Aug), not a calendar year — the mix of homes sold late in the year moves the number.",
+    "Monthly payment is principal and interest only: 30-year fixed, the down-payment share chosen, cash for the rest. No property taxes, insurance, PMI or HOA.",
+    "Payment prices are calendar-year averages: the MLS publishes monthly prices only as charts, so the price steps once a year while the rate moves every month.",
+    "Mortgage rates are Freddie Mac PMMS weekly averages via FRED; the survey changed methodology on 2022-11-17, so Freddie's own yearly-average table differs a little for 2022–2023.",
+  ],
+};

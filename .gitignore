@@ -1,0 +1,6 @@
+# Local source material: MLS/Freddie Mac PDFs and CSVs the page cites.
+# Kept on disk as provenance, not published.
+data/
+
+# Working notes; the repo ships the app only.
+PROGRESS.md
