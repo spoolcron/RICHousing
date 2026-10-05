@@ -5,7 +5,6 @@ const PALETTE = {
   med: "#c2610a",
   area: ["#0f766e", "#6d28d9", "#be123c", "#4d7c0f"],
   dom: "#64748b",
-  rate: "#be123c",
   pay: "#0f766e",
   payAlt: "#94a3b8",
 };
@@ -17,7 +16,7 @@ const SHORT = {
   "Richmond City": "Richmond City",
 };
 
-const state = { metric: "avg", mode: "usd", ytd: true, rate: true, down: DATA.loan.defaultDown, areas: [true, true, true, true] };
+const state = { metric: "avg", mode: "usd", ytd: true, down: DATA.loan.defaultDown, areas: [true, true, true, true] };
 
 /* ---------- formatting ---------- */
 const money = (n) => "$" + Math.round(n).toLocaleString("en-US");
@@ -57,7 +56,6 @@ function columns() {
     dom: DATA.dom.years[i],
     prevDom: i > 0 ? DATA.dom.years[i - 1] : DATA.dom.baseline.days,
     rate: DATA.rate.annual[i],
-    prevRate: i > 0 ? DATA.rate.annual[i - 1] : DATA.rate.baseline,
     prev: i > 0 ? { avg: DATA.metro.avg[i - 1], med: DATA.metro.med[i - 1] } : { avg: DATA.baseline.avg, med: DATA.baseline.med },
     prevLabel: i > 0 ? String(y - 1) : String(DATA.baseline.year),
   }));
@@ -73,7 +71,6 @@ function columns() {
       prev: { avg: DATA.ytd.prior.avg, med: DATA.ytd.prior.med },
       prevLabel: "Jan–Aug 2025",
       rate: DATA.rate.ytd,
-      prevRate: DATA.rate.ytdPrior,
       partial: true,
     });
   }
@@ -101,7 +98,7 @@ function renderMain() {
   const W = Math.max(340, box.clientWidth || 960);
   const narrow = W < 560;
   const H = narrow ? 360 : 420;
-  const M = { t: 24, r: state.rate ? (narrow ? 36 : 48) : 14, b: narrow ? 56 : 62, l: narrow ? 46 : 62 };
+  const M = { t: 24, r: 14, b: narrow ? 56 : 62, l: narrow ? 46 : 62 };
   const iw = W - M.l - M.r;
   const ih = H - M.t - M.b;
 
@@ -149,25 +146,6 @@ function renderMain() {
     s += svgEl("rect", { class: "hit", x: (M.l + groupW * i).toFixed(1), y: M.t, width: groupW.toFixed(1), height: ih, "data-col": i });
   });
 
-  if (state.rate) {
-    const rStep = 2;
-    const rMax = Math.ceil((Math.max(...cols.map((c) => c.rate)) * 1.12) / rStep) * rStep;
-    const ry = (v) => M.t + ih - (v / rMax) * ih;
-    const pts = cols.map((c, i) => [M.l + groupW * (i + 0.5), ry(c.rate)]);
-    for (let t = rStep; t <= rMax; t += rStep)
-      s += svgEl("text", { class: "axis-y", x: W - M.r + 7, y: ry(t) + 4, fill: PALETTE.rate, opacity: 0.9 }, t + "%");
-    s += svgEl("polyline", { fill: "none", stroke: PALETTE.rate, "stroke-width": 2.5, "stroke-dasharray": "7 4", "stroke-linejoin": "round", points: pts.map((p) => p.map((q) => q.toFixed(1)).join(",")).join(" ") });
-    pts.forEach((p, i) => {
-      const label = cols[i].rate.toFixed(2) + "%";
-      const w = label.length * 6.6 + 6;
-      const barTop = y(scale(ks[0], cols[i][ks[0]]));
-      const dy = p[1] < barTop && barTop - p[1] <= 26 ? 15 : -9;
-      s += svgEl("circle", { cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: 4, fill: PALETTE.rate });
-      s += svgEl("rect", { class: "halo", x: (p[0] - w / 2).toFixed(1), y: (p[1] + dy - 12).toFixed(1), width: w.toFixed(1), height: 15, rx: 3 });
-      s += svgEl("text", { class: "rate-label", x: p[0].toFixed(1), y: (p[1] + dy).toFixed(1), fill: PALETTE.rate, "text-anchor": "middle" }, label);
-    });
-    s += svgEl("text", { class: "axis-y", x: M.l, y: M.t - 10, fill: PALETTE.rate }, "— 30-year fixed rate, annual average (right axis)");
-  }
   s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: M.t + ih, y2: M.t + ih, stroke: "var(--ink-2)" });
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Home prices by year">${s}</svg>`;
 
@@ -181,8 +159,7 @@ function renderMain() {
   document.getElementById("maincap").textContent =
     `Bars start at zero. ${state.mode === "usd" ? "Dollar values, not inflation-adjusted" : "Values indexed to 2021 = 100"}. ` +
     `The figure under each year is the one-year change in ${NAME[k0].toLowerCase()} price: 2021 is measured against 2020, and the 2026 YTD column against Jan–Aug 2025. ` +
-    `${NAME[k0]} price moved ${pctTxt(since)} from 2021 to 2025. Hover or tap a column for exact figures.` +
-    (state.rate ? ` Rates are Freddie Mac PMMS annual averages: ${DATA.rate.annual[0]}% in 2021 to ${DATA.rate.annual[4]}% in 2025.` : "");
+    `${NAME[k0]} price moved ${pctTxt(since)} from 2021 to 2025. Hover or tap a column for exact figures.`;
 }
 
 function showTip(e, c, ks) {
@@ -511,10 +488,6 @@ document.querySelectorAll("#mode button").forEach((b) =>
 document.getElementById("ytd").addEventListener("change", (e) => {
   state.ytd = e.target.checked;
   renderDom();
-  renderMain();
-});
-document.getElementById("rate").addEventListener("change", (e) => {
-  state.rate = e.target.checked;
   renderMain();
 });
 document.getElementById("down").addEventListener("change", (e) => {
