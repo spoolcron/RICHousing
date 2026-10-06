@@ -5,6 +5,7 @@ const PALETTE = {
   med: "#c2610a",
   area: ["#0f766e", "#6d28d9", "#be123c", "#4d7c0f"],
   dom: "#64748b",
+  rent: "#7c3aed",
   pay: "#0f766e",
   payAlt: "#94a3b8",
 };
@@ -239,6 +240,110 @@ function renderDom() {
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Average days on market by year">${s}</svg>`;
 }
 
+/* ---------- asking rent ---------- */
+function rentColumns() {
+  const m = DATA.rent.months.rent;
+  const janYtd = DATA.years.length * 12;
+  const cols = DATA.years.map((y, i) => ({
+    label: String(y),
+    sub: "",
+    rent: DATA.rent.annual[i],
+    prevRent: i > 0 ? DATA.rent.annual[i - 1] : DATA.rent.baseline.annual,
+    prevLabel: i > 0 ? String(y - 1) : String(DATA.rent.baseline.year),
+    first: m[i * 12],
+    last: m[i * 12 + 11],
+    endMon: "Dec",
+  }));
+  if (state.ytd) {
+    cols.push({
+      label: "2026",
+      sub: "YTD",
+      rent: DATA.rent.ytd,
+      prevRent: DATA.rent.ytdPrior,
+      prevLabel: "Jan–Aug 2025",
+      first: m[janYtd],
+      last: m[m.length - 1],
+      endMon: MONTH_NAMES[m.length - 1 - janYtd],
+      partial: true,
+    });
+  }
+  return cols;
+}
+
+function renderRent() {
+  const box = document.getElementById("rent");
+  const W = Math.max(340, box.clientWidth || 960);
+  const narrow = W < 560;
+  const H = narrow ? 320 : 370;
+  const M = { t: 24, r: 14, b: narrow ? 56 : 62, l: narrow ? 54 : 62 };
+  const iw = W - M.l - M.r;
+  const ih = H - M.t - M.b;
+  const cols = rentColumns();
+  const groupW = iw / cols.length;
+  const peak = Math.max(...cols.map((c) => c.rent));
+  const step = [100, 200, 500, 1000].find((s) => Math.ceil((peak * 1.06) / s) <= 6) || 1000;
+  const top = Math.ceil((peak * 1.06) / step) * step;
+  const y = (v) => M.t + ih - (v / top) * ih;
+
+  let s = "";
+  for (let t = 0; t <= top + 1; t += step) {
+    s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: y(t), y2: y(t) });
+    s += svgEl("text", { class: "axis-y", x: M.l - 8, y: y(t) + 4, "text-anchor": "end" }, "$" + t.toLocaleString("en-US"));
+  }
+  cols.forEach((c, i) => {
+    const cx = M.l + groupW * (i + 0.5);
+    const bw = Math.min(58, groupW * 0.6);
+    s += svgEl("rect", {
+      x: (cx - bw / 2).toFixed(1), y: y(c.rent).toFixed(1), width: bw.toFixed(1),
+      height: Math.max(1, M.t + ih - y(c.rent)).toFixed(1), rx: 3, fill: PALETTE.rent,
+      opacity: c.partial ? 0.5 : 1,
+      "stroke-dasharray": c.partial ? "4 3" : undefined,
+      stroke: c.partial ? PALETTE.rent : "none", "stroke-width": c.partial ? 1 : undefined,
+    });
+    s += svgEl("text", { class: "vlabel" + (c.partial ? " weak" : ""), x: cx.toFixed(1), y: (y(c.rent) - 6).toFixed(1), "text-anchor": "middle" }, money(c.rent));
+    s += svgEl("text", { class: "axis-x", x: cx.toFixed(1), y: H - M.b + 20, "text-anchor": "middle" }, yearLabel(c, narrow));
+    const p = change(c.rent, c.prevRent);
+    s += svgEl("text", { class: "yoy " + pctCls(p), x: cx.toFixed(1), y: H - M.b + 36, "text-anchor": "middle" }, pctTxt(p));
+    s += svgEl("rect", { class: "hit", x: (M.l + groupW * i).toFixed(1), y: M.t, width: groupW.toFixed(1), height: ih, "data-col": i });
+  });
+  s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: M.t + ih, y2: M.t + ih, stroke: "var(--ink-2)" });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Average asking rent by year">${s}</svg>`;
+  box.querySelectorAll(".hit").forEach((r) => {
+    r.addEventListener("mousemove", (e) => showRentTip(e, cols[+r.dataset.col]));
+    r.addEventListener("mouseleave", () => { document.getElementById("renttip").hidden = true; });
+  });
+
+  const r21 = DATA.rent.annual[0];
+  const r25 = DATA.rent.annual[4];
+  const yoy = DATA.rent.annual.map((v, i) => (i ? change(v, DATA.rent.annual[i - 1]) : change(v, DATA.rent.baseline.annual)));
+  const steepest = yoy.indexOf(Math.max(...yoy));
+  const pay21 = monthlyPay(DATA.metro.avg[0], DATA.rate.annual[0], state.down);
+  const pay25 = monthlyPay(DATA.metro.avg[4], DATA.rate.annual[4], state.down);
+  document.getElementById("rentcap").textContent =
+    `Asking rent for a typical 1,910 sq ft single-family home, metro-wide, smoothed, utilities excluded. ` +
+    `${money(r21)}/mo in 2021 → ${money(r25)}/mo in 2025, ${pctTxt(change(r25, r21))}, steepest in ${DATA.years[steepest]} at ${pctTxt(yoy[steepest])}. ` +
+    `2026 year-to-date ${money(DATA.rent.ytd)}/mo, ${pctTxt(change(DATA.rent.ytd, DATA.rent.ytdPrior))} against the same months of 2025. ` +
+    `Over the same window the payment on the average metro price went from ${money(pay21)}/mo to ${money(pay25)}/mo (` +
+    `${pctTxt(change(pay25, pay21))} in principal and interest at ${state.down}% down), so rent rose by about a quarter as much as buying.`;
+}
+
+function showRentTip(e, c) {
+  const wrap = document.getElementById("rent").parentElement;
+  const tip = document.getElementById("renttip");
+  const p = change(c.rent, c.prevRent);
+  tip.innerHTML =
+    `<h4>${c.sub ? c.label + " " + c.sub : c.label}</h4><table>
+      <tr><td class="k">Average asking rent</td><td>${money(c.rent)}/mo</td></tr>
+      <tr><td class="k">vs ${c.prevLabel}</td><td class="${pctCls(p)}">${pctTxt(p)}</td></tr>
+      <tr><td class="k">Jan → ${c.endMon}</td><td>${money(c.first)} → ${money(c.last)}</td></tr>
+      <tr><td class="k">vs 2021</td><td>${pctTxt(change(c.rent, DATA.rent.annual[0]))}</td></tr></table>
+      <p class="note">Asking rent, utilities excluded — what landlords list, not what sitting tenants pay.</p>`;
+  tip.hidden = false;
+  const wb = wrap.getBoundingClientRect();
+  tip.style.left = Math.min(Math.max(8, e.clientX - wb.left + 14), wb.width - tip.offsetWidth - 8) + "px";
+  tip.style.top = Math.max(4, e.clientY - wb.top - 10) + "px";
+}
+
 /* ---------- monthly payment ---------- */
 function renderPay() {
   const box = document.getElementById("pay");
@@ -459,6 +564,7 @@ function renderStats() {
 function render() {
   renderMain();
   renderDom();
+  renderRent();
   renderPay();
   renderAreas();
 }
@@ -488,6 +594,7 @@ document.querySelectorAll("#mode button").forEach((b) =>
 document.getElementById("ytd").addEventListener("change", (e) => {
   state.ytd = e.target.checked;
   renderDom();
+  renderRent();
   renderMain();
 });
 document.getElementById("down").addEventListener("change", (e) => {

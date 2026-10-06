@@ -76,6 +76,28 @@ const DATA = {
     },
   },
 
+  // Average asking rent: Zillow Observed Rent Index (ZORI), Richmond, VA MSA — the smoothed market
+  // rate rent for a typical 1,910 sq ft single-family home. Metro geography, so it covers the same
+  // four localities plus the rest of the MSA. Copy saved at data/zori-metro.csv, pulled 2026-10-05.
+  rent: {
+    annual: [1324.65, 1479.47, 1532.02, 1600.67, 1664.25],
+    baseline: { year: 2020, annual: 1209.92 },
+    ytd: 1712.76,
+    ytdPrior: 1658.89,
+    months: {
+      start: "2021-01",
+      last: "2026-08",
+      rent: [
+        1236.53, 1243.96, 1263.15, 1283.04, 1306.43, 1327.29, 1348.99, 1362.24, 1369.49, 1375.14, 1383.01, 1396.5,
+        1403.97, 1417.51, 1430.84, 1453.08, 1473.25, 1492.9, 1513.65, 1521.4, 1523, 1513.73, 1508.41, 1501.89,
+        1500.19, 1504.12, 1515.29, 1526.96, 1535.7, 1541.06, 1542.66, 1545.02, 1547.71, 1545.76, 1543.51, 1536.25,
+        1544.15, 1555.38, 1572.29, 1587.63, 1598.75, 1612, 1621.66, 1628.95, 1624.86, 1618.04, 1619.32, 1625.02,
+        1627.23, 1631.5, 1643.75, 1657.09, 1667.15, 1673.48, 1684.97, 1685.93, 1682.95, 1673.37, 1670.67, 1672.91,
+        1682.21, 1693.53, 1703.44, 1712.33, 1721.46, 1728.73, 1731.62, 1728.73,
+      ],
+    },
+  },
+
   // Assumptions for the monthly-payment estimate.
   loan: { years: 30, defaultDown: 20 },
 
@@ -96,6 +118,10 @@ const DATA = {
       what: "30-year fixed mortgage rate, weekly (Freddie Mac PMMS via FRED, series MORTGAGE30US)",
       url: "https://fred.stlouisfed.org/data/MORTGAGE30US",
     },
+    {
+      what: "Average asking rent by month, 2021–2026 (Zillow Observed Rent Index, Richmond VA metro)",
+      url: "https://files.zillowstatic.com/research/public_csvs/zori/Metro_zori_uc_sfrcondomfr_sm_month.csv",
+    },
   ],
 
   notes: [
@@ -107,5 +133,7 @@ const DATA = {
     "Monthly payment is principal and interest only: 30-year fixed, the down-payment share chosen, cash for the rest. No property taxes, insurance, PMI or HOA.",
     "Payment prices are calendar-year averages: the MLS publishes monthly prices only as charts, so the price steps once a year while the rate moves every month.",
     "Mortgage rates are Freddie Mac PMMS weekly averages via FRED; the survey changed methodology on 2022-11-17, so Freddie's own yearly-average table differs a little for 2022–2023.",
+    "Rent is Zillow's observed rent index: asking rent for a typical 1,910 sq ft single-family home, metro-wide, smoothed, utilities excluded. It is what landlords ask, not what sitting tenants pay.",
+    "Rent is metro-wide (Zillow geography), while prices are the four CVMLS localities — the wider MSA pulls the rent line a little.",
   ],
 };
