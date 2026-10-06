@@ -98,6 +98,16 @@ const DATA = {
     },
   },
 
+  // The last month of data, shown on its own at the right edge of the charts. Same
+  // all-residential basis as the yearly series above: the Key Metrics table of the August
+  // 2026 monthly report (month vs the same month a year earlier), plus ZORI for that month.
+  last: {
+    month: "2026-08",
+    avg: 502690, med: 427000, sales: 1106, dom: 27,
+    avgPrior: 478585, medPrior: 410000, salesPrior: 1233, domPrior: 23,
+    rent: 1728.73, rentPrior: 1685.93,
+  },
+
   // Assumptions for the monthly-payment estimate.
   loan: { years: 30, defaultDown: 20 },
 
@@ -107,7 +117,7 @@ const DATA = {
       url: "https://cvmls-public.stats.showingtime.com/docs/ann/x/RichmondMetro",
     },
     {
-      what: "Monthly indicators, Aug 2026 (2026 and 2025 year-to-date, all residential)",
+      what: "Monthly indicators, Aug 2026 (2026 and 2025 year-to-date, and August 2026 vs August 2025, all residential)",
       url: "https://cvmls-public.stats.showingtime.com/docs/mmi/x/RichmondMetro",
     },
     {
@@ -131,9 +141,10 @@ const DATA = {
     "MLS closings only: off-market and unlisted sales are excluded; price is contract price, not concession-adjusted.",
     "2026 is year-to-date (Jan–Aug), not a calendar year — the mix of homes sold late in the year moves the number.",
     "Monthly payment is principal and interest only: 30-year fixed, the down-payment share chosen, cash for the rest. No property taxes, insurance, PMI or HOA.",
-    "Payment prices are calendar-year averages: the MLS publishes monthly prices only as charts, so the price steps once a year while the rate moves every month.",
+    "Payment prices are calendar-year averages: the monthly report prints month-level prices only for the current month and its year-ago comparison, so the price steps once a year apart from the final August column, while the rate moves every month.",
     "Mortgage rates are Freddie Mac PMMS weekly averages via FRED; the survey changed methodology on 2022-11-17, so Freddie's own yearly-average table differs a little for 2022–2023.",
     "Rent is Zillow's observed rent index: asking rent for a typical 1,910 sq ft single-family home, metro-wide, smoothed, utilities excluded. It is what landlords ask, not what sitting tenants pay.",
     "Rent is metro-wide (Zillow geography), while prices are the four CVMLS localities — the wider MSA pulls the rent line a little.",
+    "The last column on the price, rent and days-on-market charts is August 2026 alone, not a year. A single month turns over a few hundred sales, so it moves for reasons the yearly series averages out — it is there to show the recent turn, and its change figure is against August 2025.",
   ],
 };

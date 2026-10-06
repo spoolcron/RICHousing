@@ -44,6 +44,11 @@ function monthAt(i) {
   const d = new Date(Date.UTC(y, m - 1 + i, 1));
   return { year: d.getUTCFullYear(), mon: d.getUTCMonth(), label: MONTH_NAMES[d.getUTCMonth()] + " ’" + String(d.getUTCFullYear()).slice(2) };
 }
+function monthIndexOf(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  const [sy, sm] = DATA.rate.monthly.start.split("-").map(Number);
+  return (y - sy) * 12 + (m - sm);
+}
 const priceForYear = (y) => { const i = DATA.years.indexOf(y); return i >= 0 ? DATA.metro.avg[i] : DATA.ytd.avg; };
 
 /* ---------- columns ---------- */
@@ -75,6 +80,22 @@ function columns() {
       partial: true,
     });
   }
+
+  // The final month of the record, standing on its own at the right edge so the recent turn
+  // in the market is readable next to the yearly bars. Always shown — the toggle is about 2026 YTD.
+  cols.push({
+    label: "Aug ’26",
+    sub: "single month",
+    monthly: true,
+    avg: DATA.last.avg,
+    med: DATA.last.med,
+    sales: DATA.last.sales,
+    dom: DATA.last.dom,
+    prevDom: DATA.last.domPrior,
+    prev: { avg: DATA.last.avgPrior, med: DATA.last.medPrior },
+    prevLabel: "Aug 2025",
+    rate: DATA.rate.monthly.rate[monthIndexOf(DATA.last.month)],
+  });
   return cols;
 }
 
@@ -89,6 +110,7 @@ function tickStep(max) {
 }
 
 function yearLabel(c, narrow) {
+  if (c.monthly) return narrow ? "Aug" : "Aug ’26";
   if (!narrow) return c.partial ? c.label + " YTD" : c.label;
   return "’" + c.label.slice(2) + (c.partial ? "*" : "");
 }
@@ -124,6 +146,7 @@ function renderMain() {
   cols.forEach((c, i) => {
     const cx = M.l + groupW * (i + 0.5);
     const bw = Math.min(58, (groupW * 0.72) / ks.length);
+    const dim = c.partial || c.monthly;
     ks.forEach((k, j) => {
       const x = cx - (bw * ks.length) / 2 + bw * j;
       const v = scale(k, c[k]);
@@ -132,12 +155,12 @@ function renderMain() {
       s += svgEl("rect", {
         x: x.toFixed(1), y: y(v).toFixed(1), width: (bw - (ks.length > 1 ? 3 : 0)).toFixed(1),
         height: Math.max(1, h).toFixed(1), rx: 3, fill,
-        opacity: c.partial ? 0.55 : 1,
-        "stroke-dasharray": c.partial ? "4 3" : undefined,
-        stroke: c.partial ? fill : "none", "stroke-width": c.partial ? 1 : undefined,
+        opacity: dim ? 0.55 : 1,
+        "stroke-dasharray": dim ? "4 3" : undefined,
+        stroke: dim ? fill : "none", "stroke-width": dim ? 1 : undefined,
       });
       if (showVals)
-        s += svgEl("text", { class: "vlabel" + (c.partial ? " weak" : ""), x: (x + bw / 2 - 1).toFixed(1), y: (y(v) - 6).toFixed(1), "text-anchor": "middle" },
+        s += svgEl("text", { class: "vlabel" + (dim ? " weak" : ""), x: (x + bw / 2 - 1).toFixed(1), y: (y(v) - 6).toFixed(1), "text-anchor": "middle" },
           fmtVal(v));
     });
     s += svgEl("text", { class: "axis-x", x: cx.toFixed(1), y: H - M.b + 20, "text-anchor": "middle" },
@@ -148,7 +171,7 @@ function renderMain() {
   });
 
   s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: M.t + ih, y2: M.t + ih, stroke: "var(--ink-2)" });
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Home prices by year">${s}</svg>`;
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Home prices by year, with August 2026 shown on its own">${s}</svg>`;
 
   box.querySelectorAll(".hit").forEach((r) => {
     r.addEventListener("mousemove", (e) => showTip(e, cols[+r.dataset.col], ks));
@@ -157,10 +180,13 @@ function renderMain() {
 
   const k0 = ks[0];
   const since = change(DATA.metro[k0][4], DATA.metro[k0][0]);
+  const last = DATA.last;
+  const lkey = k0 === "avg" ? "avgPrior" : "medPrior";
   document.getElementById("maincap").textContent =
     `Bars start at zero. ${state.mode === "usd" ? "Dollar values, not inflation-adjusted" : "Values indexed to 2021 = 100"}. ` +
-    `The figure under each year is the one-year change in ${NAME[k0].toLowerCase()} price: 2021 is measured against 2020, and the 2026 YTD column against Jan–Aug 2025. ` +
-    `${NAME[k0]} price moved ${pctTxt(since)} from 2021 to 2025. Hover or tap a column for exact figures.`;
+    `The figure under each column is the one-year change in ${NAME[k0].toLowerCase()} price: 2021 against 2020, the 2026 YTD column against Jan–Aug 2025, the last column against August 2025. ` +
+    `${NAME[k0]} price moved ${pctTxt(since)} from 2021 to 2025. The last month on record, August 2026, is ${money(last[k0])}, ${pctTxt(change(last[k0], last[lkey]))} on the year and ${pctTxt(change(last[k0], DATA.metro[k0][0]))} since 2021. ` +
+    `Hover or tap a column for exact figures.`;
 }
 
 function showTip(e, c, ks) {
@@ -183,7 +209,7 @@ function showTip(e, c, ks) {
       <tr><td class="k">30-yr rate</td><td>${c.rate.toFixed(2)}%</td></tr>
       <tr><td class="k">Payment, ${state.down}% down</td><td>${money(monthlyPay(c.avg, c.rate, state.down))}/mo</td></tr>
       <tr><td class="k">Closed sales</td><td>${c.sales.toLocaleString("en-US")}</td></tr></table>
-      ${c.partial ? '<p class="note">Jan–Aug only, not a full year.</p>' : ""}`;
+      ${c.monthly ? '<p class="note">One month only. A month turns over a few hundred sales, so it swings on what happened to close — read it as the recent turn, not a trend.</p>' : c.partial ? '<p class="note">Jan–Aug only, not a full year.</p>' : ""}`;
   tip.hidden = false;
   const wb = wrap.getBoundingClientRect();
   const x = e.clientX - wb.left + 14;
@@ -223,21 +249,22 @@ function renderDom() {
     const bw = Math.min(58, groupW * 0.6);
     const v = c.dom;
     const col = PALETTE.dom;
+    const dim = c.partial || c.monthly;
     s += svgEl("rect", {
       x: (cx - bw / 2).toFixed(1), y: y(v).toFixed(1), width: bw.toFixed(1),
       height: Math.max(1, M.t + ih - y(v)).toFixed(1), rx: 3, fill: col,
-      opacity: c.partial ? 0.5 : 1,
-      "stroke-dasharray": c.partial ? "4 3" : undefined,
-      stroke: c.partial ? col : "none", "stroke-width": c.partial ? 1 : undefined,
+      opacity: dim ? 0.5 : 1,
+      "stroke-dasharray": dim ? "4 3" : undefined,
+      stroke: dim ? col : "none", "stroke-width": dim ? 1 : undefined,
     });
-    s += svgEl("text", { class: "vlabel" + (c.partial ? " weak" : ""), x: cx.toFixed(1), y: (y(v) - 6).toFixed(1), "text-anchor": "middle" }, v);
+    s += svgEl("text", { class: "vlabel" + (dim ? " weak" : ""), x: cx.toFixed(1), y: (y(v) - 6).toFixed(1), "text-anchor": "middle" }, v);
     s += svgEl("text", { class: "axis-x", x: cx.toFixed(1), y: H - M.b + 18, "text-anchor": "middle" }, yearLabel(c, narrow));
     const d = v - c.prevDom;
     s += svgEl("text", { class: "yoy", x: cx.toFixed(1), y: H - M.b + 34, "text-anchor": "middle", fill: "var(--ink-2)" },
       (d > 0 ? "+" : "") + d + " d");
   });
   s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: M.t + ih, y2: M.t + ih, stroke: "var(--ink-2)" });
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Average days on market by year">${s}</svg>`;
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Average days on market by year, with August 2026 shown on its own">${s}</svg>`;
 }
 
 /* ---------- asking rent ---------- */
@@ -267,6 +294,17 @@ function rentColumns() {
       partial: true,
     });
   }
+  cols.push({
+    label: "Aug ’26",
+    sub: "single month",
+    monthly: true,
+    rent: DATA.last.rent,
+    prevRent: DATA.last.rentPrior,
+    prevLabel: "Aug 2025",
+    first: DATA.last.rentPrior,
+    last: DATA.last.rent,
+    endMon: "Aug",
+  });
   return cols;
 }
 
@@ -293,21 +331,22 @@ function renderRent() {
   cols.forEach((c, i) => {
     const cx = M.l + groupW * (i + 0.5);
     const bw = Math.min(58, groupW * 0.6);
+    const dim = c.partial || c.monthly;
     s += svgEl("rect", {
       x: (cx - bw / 2).toFixed(1), y: y(c.rent).toFixed(1), width: bw.toFixed(1),
       height: Math.max(1, M.t + ih - y(c.rent)).toFixed(1), rx: 3, fill: PALETTE.rent,
-      opacity: c.partial ? 0.5 : 1,
-      "stroke-dasharray": c.partial ? "4 3" : undefined,
-      stroke: c.partial ? PALETTE.rent : "none", "stroke-width": c.partial ? 1 : undefined,
+      opacity: dim ? 0.5 : 1,
+      "stroke-dasharray": dim ? "4 3" : undefined,
+      stroke: dim ? PALETTE.rent : "none", "stroke-width": dim ? 1 : undefined,
     });
-    s += svgEl("text", { class: "vlabel" + (c.partial ? " weak" : ""), x: cx.toFixed(1), y: (y(c.rent) - 6).toFixed(1), "text-anchor": "middle" }, money(c.rent));
+    s += svgEl("text", { class: "vlabel" + (dim ? " weak" : ""), x: cx.toFixed(1), y: (y(c.rent) - 6).toFixed(1), "text-anchor": "middle" }, money(c.rent));
     s += svgEl("text", { class: "axis-x", x: cx.toFixed(1), y: H - M.b + 20, "text-anchor": "middle" }, yearLabel(c, narrow));
     const p = change(c.rent, c.prevRent);
     s += svgEl("text", { class: "yoy " + pctCls(p), x: cx.toFixed(1), y: H - M.b + 36, "text-anchor": "middle" }, pctTxt(p));
     s += svgEl("rect", { class: "hit", x: (M.l + groupW * i).toFixed(1), y: M.t, width: groupW.toFixed(1), height: ih, "data-col": i });
   });
   s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: M.t + ih, y2: M.t + ih, stroke: "var(--ink-2)" });
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Average asking rent by year">${s}</svg>`;
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Average asking rent by year, with August 2026 shown on its own">${s}</svg>`;
   box.querySelectorAll(".hit").forEach((r) => {
     r.addEventListener("mousemove", (e) => showRentTip(e, cols[+r.dataset.col]));
     r.addEventListener("mouseleave", () => { document.getElementById("renttip").hidden = true; });
@@ -323,6 +362,7 @@ function renderRent() {
     `Asking rent for a typical 1,910 sq ft single-family home, metro-wide, smoothed, utilities excluded. ` +
     `${money(r21)}/mo in 2021 → ${money(r25)}/mo in 2025, ${pctTxt(change(r25, r21))}, steepest in ${DATA.years[steepest]} at ${pctTxt(yoy[steepest])}. ` +
     `2026 year-to-date ${money(DATA.rent.ytd)}/mo, ${pctTxt(change(DATA.rent.ytd, DATA.rent.ytdPrior))} against the same months of 2025. ` +
+    `The last bar is August 2026 alone at ${money(DATA.last.rent)}/mo, ${pctTxt(change(DATA.last.rent, DATA.last.rentPrior))} on the year. ` +
     `Over the same window the payment on the average metro price went from ${money(pay21)}/mo to ${money(pay25)}/mo (` +
     `${pctTxt(change(pay25, pay21))} in principal and interest at ${state.down}% down), so rent rose by about a quarter as much as buying.`;
 }
@@ -335,9 +375,9 @@ function showRentTip(e, c) {
     `<h4>${c.sub ? c.label + " " + c.sub : c.label}</h4><table>
       <tr><td class="k">Average asking rent</td><td>${money(c.rent)}/mo</td></tr>
       <tr><td class="k">vs ${c.prevLabel}</td><td class="${pctCls(p)}">${pctTxt(p)}</td></tr>
-      <tr><td class="k">Jan → ${c.endMon}</td><td>${money(c.first)} → ${money(c.last)}</td></tr>
+      <tr><td class="k">${c.monthly ? "Aug 2025 → Aug 2026" : "Jan → " + c.endMon}</td><td>${money(c.first)} → ${money(c.last)}</td></tr>
       <tr><td class="k">vs 2021</td><td>${pctTxt(change(c.rent, DATA.rent.annual[0]))}</td></tr></table>
-      <p class="note">Asking rent, utilities excluded — what landlords list, not what sitting tenants pay.</p>`;
+      <p class="note">Asking rent, utilities excluded — what landlords list, not what sitting tenants pay.</p>${c.monthly ? '<p class="note">One month only — the latest reading, not a trend.</p>' : ""}`;
   tip.hidden = false;
   const wb = wrap.getBoundingClientRect();
   tip.style.left = Math.min(Math.max(8, e.clientX - wb.left + 14), wb.width - tip.offsetWidth - 8) + "px";
