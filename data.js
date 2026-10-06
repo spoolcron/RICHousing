@@ -61,6 +61,7 @@ const DATA = {
     baseline: 3.11,
     ytd: 6.35,
     ytdPrior: 6.76,
+    methodChange: "2022-11",
     monthly: {
       start: "2021-01",
       last: "2026-09",

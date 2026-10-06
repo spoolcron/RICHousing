@@ -6,6 +6,7 @@ const PALETTE = {
   area: ["#0f766e", "#6d28d9", "#be123c", "#4d7c0f"],
   dom: "#64748b",
   rent: "#7c3aed",
+  rate: "#b91c1c",
   pay: "#0f766e",
   payAlt: "#94a3b8",
 };
@@ -384,6 +385,94 @@ function showRentTip(e, c) {
   tip.style.top = Math.max(4, e.clientY - wb.top - 10) + "px";
 }
 
+/* ---------- 30-year rate ---------- */
+function renderRate() {
+  const box = document.getElementById("rate");
+  const W = Math.max(340, box.clientWidth || 960);
+  const narrow = W < 560;
+  const H = narrow ? 300 : 340;
+  const M = { t: 26, r: 14, b: 38, l: narrow ? 46 : 56 };
+  const iw = W - M.l - M.r;
+  const ih = H - M.t - M.b;
+  const rows = DATA.rate.monthly.rate.map((r, i) => ({ m: monthAt(i), rate: r }));
+  const lo0 = Math.min(...rows.map((d) => d.rate));
+  const hi0 = Math.max(...rows.map((d) => d.rate));
+  const pad = (hi0 - lo0) * 0.1;
+  const step = [0.25, 0.5, 1, 2].find((s) => Math.ceil((hi0 + pad) / s) - Math.floor((lo0 - pad) / s) <= 7) || 2;
+  let lo = Math.floor(lo0 / step) * step;
+  let hi = Math.ceil(hi0 / step) * step;
+  if (hi - hi0 < (hi - lo) * 0.06) hi = +(hi + step).toFixed(2);
+  if (lo0 - lo < (hi - lo) * 0.06) lo = +(lo - step).toFixed(2);
+  const dp = step < 0.5 ? 2 : 1;
+  const x = (i) => M.l + (iw * i) / (rows.length - 1);
+  const y = (v) => M.t + ih - ((v - lo) / (hi - lo)) * ih;
+  const half = iw / (rows.length - 1) / 2;
+  const end = rows.length - 1;
+
+  let s = "";
+  for (let t = lo; t <= hi + 1e-6; t += step) {
+    s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: y(t).toFixed(1), y2: y(t).toFixed(1) });
+    s += svgEl("text", { class: "axis-y", x: M.l - 8, y: (y(t) + 4).toFixed(1), "text-anchor": "end" }, t.toFixed(dp) + "%");
+  }
+  rows.forEach((d, i) => {
+    if (d.m.mon !== 0) return;
+    s += svgEl("line", { class: "grid", x1: x(i).toFixed(1), x2: x(i).toFixed(1), y1: M.t, y2: M.t + ih });
+    if (x(end) - x(i) > 34) s += svgEl("text", { class: "axis-x", x: x(i).toFixed(1), y: H - M.b + 18, "text-anchor": "middle" }, "’" + String(d.m.year).slice(2));
+  });
+  s += svgEl("text", { class: "axis-x", x: x(end).toFixed(1), y: H - M.b + 18, "text-anchor": "middle" }, rows[end].m.label);
+
+  // Freddie Mac changed the survey's methodology in Nov 2022, so the series either side of
+  // this month is not measured the same way: it gets a marker rather than being smoothed over.
+  const ch = monthIndexOf(DATA.rate.methodChange);
+  const chLabel = MONTH_NAMES[Number(DATA.rate.methodChange.slice(5)) - 1] + " " + DATA.rate.methodChange.slice(0, 4);
+  s += svgEl("line", { x1: x(ch).toFixed(1), x2: x(ch).toFixed(1), y1: M.t, y2: (M.t + ih).toFixed(1), stroke: "var(--ink-2)", "stroke-width": 1, "stroke-dasharray": "2 3" });
+  s += svgEl("text", { class: "axis-x", x: (x(ch) - 5).toFixed(1), y: (M.t + ih - 8).toFixed(1), fill: "var(--ink-2)", "text-anchor": "end" }, narrow ? "method change" : "survey method change");
+
+  s += svgEl("polyline", { fill: "none", stroke: PALETTE.rate, "stroke-width": 2.5, "stroke-linejoin": "round", points: rows.map((d, i) => `${x(i).toFixed(1)},${y(d.rate).toFixed(1)}`).join(" ") });
+  s += svgEl("circle", { cx: x(end).toFixed(1), cy: y(rows[end].rate).toFixed(1), r: 4, fill: PALETTE.rate });
+  s += svgEl("text", { class: "endlabel", x: (x(end) - 7).toFixed(1), y: (y(rows[end].rate) - 9).toFixed(1), fill: PALETTE.rate, "text-anchor": "end" }, rows[end].rate.toFixed(2) + "%");
+  s += svgEl("line", { class: "grid", x1: M.l, x2: W - M.r, y1: M.t + ih, y2: M.t + ih, stroke: "var(--ink-2)" });
+  rows.forEach((d, i) => {
+    s += svgEl("rect", { class: "hit", x: (x(i) - half).toFixed(1), y: M.t, width: (half * 2).toFixed(1), height: ih, "data-i": i });
+  });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="30-year fixed mortgage rate by month">${s}</svg>`;
+  box.querySelectorAll(".hit").forEach((r) => {
+    r.addEventListener("mousemove", (e) => showRateTip(e, rows[+r.dataset.i], +r.dataset.i));
+    r.addEventListener("mouseleave", () => { document.getElementById("ratetip").hidden = true; });
+  });
+
+  const lowAt = rows.findIndex((d) => d.rate === lo0);
+  const peakAt = rows.findIndex((d) => d.rate === hi0);
+  const per100k = (r) => monthlyPay(100000, r, 0);
+  const first = rows[0].rate;
+  const last = rows[end].rate;
+  document.getElementById("ratecap").textContent =
+    `Freddie Mac 30-year fixed survey average: the weekly observations inside each calendar month, averaged (FRED series MORTGAGE30US). ` +
+    `The axis starts at ${lo.toFixed(dp)}%, not zero — the range is the point here, not the level. ` +
+    `Low ${lo0.toFixed(2)}% in ${rows[lowAt].m.label}, peak ${hi0.toFixed(2)}% in ${rows[peakAt].m.label}, latest ${last.toFixed(2)}% in ${rows[end].m.label} (${(last - first >= 0 ? "+" : "") + (last - first).toFixed(2)} pts against Jan 2021). ` +
+    `The dotted line is ${chLabel}, when Freddie Mac changed the survey's methodology; the series is not measured the same way either side of it. ` +
+    `At ${last.toFixed(2)}% the principal and interest on $100,000 borrowed over 30 years is ${money(per100k(last))}/mo — ${money(per100k(lo0))}/mo at the ${lo0.toFixed(2)}% low.`;
+}
+
+function showRateTip(e, d, i) {
+  const wrap = document.getElementById("rate").parentElement;
+  const tip = document.getElementById("ratetip");
+  const rates = DATA.rate.monthly.rate;
+  const pts = (v) => (v > 0 ? "+" : "") + v.toFixed(2) + " pts";
+  const ago = i >= 12 ? rates[i - 12] : null;
+  tip.innerHTML =
+    `<h4>${d.m.label}</h4><table>
+      <tr><td class="k">30-yr fixed, monthly average</td><td>${d.rate.toFixed(2)}%</td></tr>
+      ${ago === null ? "" : `<tr><td class="k">vs ${monthAt(i - 12).label}</td><td>${pts(d.rate - ago)}</td></tr>`}
+      <tr><td class="k">vs Jan 2021</td><td>${pts(d.rate - rates[0])}</td></tr>
+      <tr><td class="k">P&amp;I per $100,000, 30 yr</td><td>${money(monthlyPay(100000, d.rate, 0))}/mo</td></tr></table>
+      <p class="note">Survey average of what lenders quoted that week — not the offer any one borrower was given.</p>`;
+  tip.hidden = false;
+  const wb = wrap.getBoundingClientRect();
+  tip.style.left = Math.min(Math.max(8, e.clientX - wb.left + 14), wb.width - tip.offsetWidth - 8) + "px";
+  tip.style.top = Math.max(4, e.clientY - wb.top - 10) + "px";
+}
+
 /* ---------- monthly payment ---------- */
 function renderPay() {
   const box = document.getElementById("pay");
@@ -593,6 +682,7 @@ function renderStats() {
     { v: growth[best].toFixed(1) + "%", s: `average-price gain in ${DATA.years[best]} — the steepest year` },
     { v: money(DATA.ytd.avg), s: `average price, ${DATA.ytd.months} · ${pctTxt(change(DATA.ytd.avg, DATA.ytd.prior.avg))} vs same months 2025` },
     { v: DATA.dom.years[4] + " days", s: `average time to an accepted offer in 2025, from ${DATA.dom.years[0]} days in 2021` },
+    { v: DATA.rate.monthly.rate.at(-1).toFixed(2) + "%", s: `30-year fixed in ${monthAt(DATA.rate.monthly.rate.length - 1).label}, from ${DATA.rate.monthly.rate[0].toFixed(2)}% in Jan 2021 — ${money(monthlyPay(100000, DATA.rate.monthly.rate.at(-1), 0))}/mo per $100,000 borrowed against ${money(monthlyPay(100000, DATA.rate.monthly.rate[0], 0))}/mo then` },
     { v: money(monthlyPay(avg[4], DATA.rate.annual[4], state.down)) + "/mo", s: `principal and interest on the 2025 price at the 2025 rate, ${state.down}% down — ${money(monthlyPay(avg[0], DATA.rate.annual[0], state.down))} for the same shape in 2021` },
   ];
   document.getElementById("stats").innerHTML = cards
@@ -605,6 +695,7 @@ function render() {
   renderMain();
   renderDom();
   renderRent();
+  renderRate();
   renderPay();
   renderAreas();
 }
